@@ -1,9 +1,22 @@
 # -*- coding: utf-8 -*-
+import sys
+from functools import update_wrapper
 import numpy as np
+import pandas as pd
 
-"""
-https://blog.csdn.net/huanghaocs/article/details/77920358
-"""
+counter = {}
+
+
+def logged(key):
+    def decorator(f):
+        def wrapped_function(idx, v):
+            if idx >= 0 and v > 0:
+                counter.setdefault(key, []).append((idx + 1, v))
+            return f(idx, v)
+
+        return update_wrapper(wrapped_function, f)
+
+    return decorator
 
 
 def zero_one_pack(volume, volumes, values):
@@ -15,6 +28,7 @@ def zero_one_pack(volume, volumes, values):
     :return:        返回最大的总价值对应的选择方案
     """
 
+    @logged(sys._getframe().f_code.co_name)
     def inner(idx, v):
         if idx < 0 or v <= 0:
             return [], 0
@@ -43,6 +57,7 @@ def complete_pack(volume, volumes, values):
     :return:        返回最大的总价值对应的选择方案
     """
 
+    @logged(sys._getframe().f_code.co_name)
     def inner(idx, v):
         if idx < 0 or v <= 0:
             return [], 0
@@ -72,6 +87,7 @@ def multiple_pack(volume, volumes, values, numbers):
     :return:        返回最大的总价值对应的选择方案
     """
 
+    @logged(sys._getframe().f_code.co_name)
     def inner(idx, v):
         if idx < 0 or v <= 0:
             return [], 0
@@ -92,16 +108,6 @@ def multiple_pack(volume, volumes, values, numbers):
     return selection
 
 
-def silence():
-    volumes = [5, 4, 7, 2, 6]
-    values = [12, 3, 10, 3, 6]
-    numbers = [2, 4, 1, 5, 3]
-
-    zero_one_pack(15, volumes, values)
-    complete_pack(15, volumes, values)
-    multiple_pack(15, volumes, values, numbers)
-
-
 def main():
     volumes = [5, 4, 7, 2, 6]
     values = [12, 3, 10, 3, 6]
@@ -110,12 +116,30 @@ def main():
     print("01背包:")
     selection = zero_one_pack(15, volumes, values)
     print(selection, np.sum(np.array(values)[selection]))
+    print(call_counter(zero_one_pack))
+
     print("完全背包:")
     selection = complete_pack(15, volumes, values)
     print(selection, np.sum(np.array(values)[selection]))
+    print(call_counter(complete_pack))
+
     print("多重背包:")
     selection = multiple_pack(15, volumes, values, numbers)
     print(selection, np.sum(np.array(values)[selection]))
+    print(call_counter(multiple_pack))
+
+
+def call_counter(func):
+    call_stack = counter.get(func.__name__)
+    shape = (max([x[0] for x in call_stack]), max([x[1] for x in call_stack]))
+    table = np.zeros(shape, dtype=np.int)
+    for idx, v in call_stack:
+        table[idx - 1, v - 1] += 1
+    return pd.DataFrame(
+        table,
+        index=range(1, shape[0] + 1),
+        columns=["{:>2}".format(x) for x in range(1, shape[1] + 1)],
+    )
 
 
 if __name__ == '__main__':
